@@ -8,12 +8,12 @@ def connect(ip):
         print("Server is not available")
 
 def requestinfo(ip, bookname):
-    # try:
-    requestString = ip + "info/" + bookname
-    res = req.get(requestString)
-    print(res.text)
-    # except:
-    #     print("Server is not available")
+    try:
+        requestString = ip + "info/" + bookname
+        res = req.get(requestString)
+        print(res.text)
+    except:
+        print("Server is not available")
 
 def requestbook(ip, bookname):
     try:
