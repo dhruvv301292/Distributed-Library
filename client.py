@@ -1,33 +1,47 @@
 import requests as req
 import argparse
+import time
 
-def connect(ip):
-    try:
-        print(req.get(ip).text)
-    except:
-        print("Server is not available")
+class Client:
+    def __init__(self, id, ip):
+        self.id = id
+        self.collection = {}
+        self.ip = ip
+        self.req_count = 1
 
-def requestinfo(ip, bookname):
-    try:
-        requestString = ip + "info/" + bookname
-        res = req.get(requestString)
-        print(res.text)
-    except:
-        print("Server is not available")
+    def connect(self):
+        try:
+            print(req.get(self.ip).text)
+        except:
+            print("Server is not available")
 
-def requestbook(ip, bookname):
-    try:
-        res = req.get(ip + "get/" + bookname)
-        print(res.text)
-    except:
-        print("Server is not available")
+    def requestinfo(self, bookname):
+        print("[{}] | Sending <{}, S1, {}, info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), self.id, self.req_count, bookname))
+        try:
+            requestString = self.ip + "info?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count)
+            res = req.get(requestString)
+            print ("[{}] | Received <{}, S1, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, self.req_count, res.text))
+            self.req_count += 1
+        except:
+            print("[{}] | Received <{}, S1, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, self.req_count, "Server not available"))
+
+    def getbook(self, bookname):
+        print("[{}] | Sending <{}, S1, {}, get {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, self.req_count, bookname ) )
+        try:
+            res = req.get(self.ip + "get?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count))
+            print("[{}] | Received <{}, S1, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, self.req_count, res.text))
+            self.req_count += 1
+        except:
+            print("[{}] | Received <{}, S1, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, self.req_count, "Server not available"))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
+    parser.add_argument('--id', type=str, default='C1')
     parser.add_argument('--ip', type=str, default='http://127.0.0.1:5000/')
-    parser.add_argument('--num_clients', type=int, default=3)
     args = parser.parse_args ()
-    connect(args.ip)
+
+    client = Client(args.id, args.ip)
+    client.connect()
     print("Enter request type and book name")
     while True:
         inp = input()
@@ -39,7 +53,10 @@ if __name__ == '__main__':
                 print('Incorrect format. Enter request type and book name')
                 continue
             if reqlist[0] == 'i' or reqlist[0] == 'info':
-                requestinfo(args.ip, reqlist[1])
+                client.requestinfo(reqlist[1])
             elif reqlist[0] == 'req' or reqlist[0] == 'request':
-                requestbook(args.ip, reqlist[1])
+                client.getbook(reqlist[1])
+
+    # [timestamp] Sent <C1, S1, 101, request>
+    # print ( "[{}] | beatCount: {} | {} sending heartbeat to S1".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count, self.id ) )
 
