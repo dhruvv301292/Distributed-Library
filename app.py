@@ -6,6 +6,7 @@ app = Flask(__name__)
 library = {}
 library["Asterix"] = 5
 library["Harry Potter"] = 7
+library["Dune"] = 3
 
 serverid = 1
 
@@ -19,6 +20,7 @@ def intro():
 @app.route("/heartbeat/<lfdid>")
 def heartbeat(lfdid):
     print("[{}] Heartbeat received from {}".format(time.strftime("%H:%M:%S", time.localtime()), lfdid))
+    print ( "[{}] Sending response to {}".format ( time.strftime ( "%H:%M:%S", time.localtime () ), lfdid ) )
     return "Alive"
 
 @app.route("/info")

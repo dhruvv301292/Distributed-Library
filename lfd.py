@@ -21,8 +21,9 @@ class LFD:
                 self.heartbeat_count += 1
                 time.sleep(self.freq - ((time.time() - start) % self.freq))
             except:
-                check = False
                 print("[{}] | beatCount: {} | {}: Server not available".format (time.strftime("%H:%M:%S", time.localtime()), self.heartbeat_count, self.id))
+                self.heartbeat_count += 1
+                time.sleep ( self.freq - ((time.time () - start) % self.freq) )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
