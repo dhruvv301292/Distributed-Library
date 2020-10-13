@@ -1,5 +1,6 @@
 from flask import Flask, request
 import time
+import argparse
 
 app = Flask(__name__)
 
@@ -21,6 +22,7 @@ def intro():
 def heartbeat(lfdid):
     print("[{}] Heartbeat received from {}".format(time.strftime("%H:%M:%S", time.localtime()), lfdid))
     print ( "[{}] Sending response to {}".format ( time.strftime ( "%H:%M:%S", time.localtime () ), lfdid ) )
+    print()
     return "Alive"
 
 @app.route("/info")
@@ -28,36 +30,46 @@ def infoBook():
     clientid = request.args.get('clientId')
     bookName = request.args.get('bookName')
     reqCount = request.args.get('reqCount')
-    print ("[{}] | Received <{}, S1, {}, Request: info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, reqCount, bookName))
-    print ("State before processing <{}, S1, {}, Request: info {}>:".format(clientid, reqCount, bookName) + str(library))
+    print ("[{}] | Received <{}, {}, {}, Request: info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName))
+    print ("State before processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
     if bookName in library.keys() and library.get(bookName) != 0:
         infoString = "Yes! {} copy/copies of {} available!".format(library.get(bookName), bookName)
-        print ("State after processing <{}, S1, {}, Request: info {}>:".format(clientid, reqCount, bookName) + str(library))
-        print ("[{}] | Sending <{}, S1, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),clientid, reqCount, infoString))
+        print ("State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
+        print ("[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),clientid, args.id, reqCount, infoString))
         return infoString
 
     else:
         infoString = "Sorry! {} is not available at the moment.".format(bookName)
-        print ( "State after processing <{}, S1, {}, Request: info {}>:".format(clientid, reqCount, bookName) + str(library))
-        print ( "[{}] | Sending <{}, S1, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime () ), clientid, reqCount, infoString))
+        print ( "State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
+        print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, infoString))
         return infoString
+
+
 
 @app.route("/get/")
 def getBook():
     clientid = request.args.get('clientId')
     bookName = request.args.get('bookName')
     reqCount = request.args.get('reqCount')
-    print ( "[{}] | Received <{}, S1, {}, Request: get {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, reqCount, bookName ) )
-    print ( "State before processing <{}, S1, {}, Request: get {}>:".format ( clientid, reqCount, bookName ) + str (library ) )
+    print ( "[{}] | Received <{}, {}, {}, Request: get {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName ) )
+    print ( "State before processing <{},{}, {}, Request: get {}>:".format ( clientid, args.id, reqCount, bookName ) + str (library ) )
     if bookName in library.keys() and library.get(bookName) != 0:
         library[bookName] = library.get(bookName) - 1
         getString = "Yes! {} has been shared with you! {} more copy/copies available!".format(bookName, library.get(bookName))
-        print("State after processing <{}, S1, {}, Request: info {}>:".format ( clientid, reqCount, bookName ) + str(library))
-        print("[{}] | Sending <{}, S1, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, reqCount, getString))
+        print("State after processing <{}, {}, {}, Request: info {}>:".format ( clientid, args.id, reqCount, bookName ) + str(library))
+        print("[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, getString))
         return getString
 
     else:
         infoString = "Sorry! {} is not available at the moment.".format ( bookName )
-        print ( "State after processing <{}, S1, {}, Request: info {}>:".format ( clientid, reqCount, bookName ) + str(library))
-        print ( "[{}] | Sending <{}, S1, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, reqCount, infoString ) )
+        print ( "State after processing <{}, {}, {}, Request: info {}>:".format ( clientid, args.id, reqCount, bookName ) + str(library))
+        print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, infoString ) )
         return infoString
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser ()
+    parser.add_argument('--id', type=str, default='S1')
+    parser.add_argument('--port', type=int, default=5000)
+    args = parser.parse_args ()
+    app.run(debug=True, port=args.port)
