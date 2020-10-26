@@ -1,6 +1,13 @@
 import requests as req
 import argparse
 import time
+import pickle
+
+def load_data():
+    a_file = open('membership.pkl', "rb")
+    output = pickle.load(a_file)
+    a_file.close()
+    return output
 
 class Client:
     def __init__(self, id, ips):
@@ -17,7 +24,7 @@ class Client:
                 resp = req.get(self.ips[i])
                 connected = True
             except:
-                print("Server", i,  "is not available")
+                print("Server", i+1,  "is not available")
 
         if connected:
             print(resp.text)
@@ -25,39 +32,76 @@ class Client:
 
     def requestinfo(self, bookname):
         message_recieved = False
+        message = []
+        self.members = load_data()
 
         for i in range(self.num_server):
-            self.sending_message(i, bookname, 'info')
+            if self.members[i]:
+                self.sending_message(i, bookname, 'info')
 
-            try:
-                requestString = self.ips[i] + "info?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count)
-                res = req.get(requestString)
-                message_recieved = True
-                self.reciept_success(i)
-                
-            except:
-                self.reciept_failed(i)
+                try:
+                    requestString = self.ips[i] + "info?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count)
+                    res = req.get(requestString)
+                    message_recieved = True
+                    message.append(res.text)
+                    self.reciept_success(i)
+                    
+                except:
+                    self.reciept_failed(i)
+                    message.append(None)
+            else:
+                message.append(None)
                 
         if message_recieved:
-            self.print_message(i, res.text)
+            done_printing = False
+
+            for i, reply in enumerate(message):
+                if reply != None and self.members[i]:
+                    if done_printing != True:
+                        self.print_message(i, reply)
+                        done_printing = True
+                        print_index = i
+                    else:
+                        if reply == message[print_index]:
+                            print('Request:', self.req_count, '-- Discarded duplicate reply from Server:', i+1)
+            
             self.req_count += 1
 
 
     def getbook(self, bookname):
         message_recieved = False
+        message = []
+        self.members = load_data()
 
         for i in range(self.num_server):
-            self.sending_message(i, bookname, 'get')
-            try:
-                res = req.get(self.ips[i] + "get?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count))
-                message_recieved = True
-                self.reciept_success(i)
+            if self.members[i]:
+                self.sending_message(i, bookname, 'get')
+                try:
+                    res = req.get(self.ips[i] + "get?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count))
+                    message_recieved = True
+                    message.append(res.text)
+                    self.reciept_success(i)
 
-            except:
-                self.reciept_failed(i)
+                except:
+                    self.reciept_failed(i)
+                    message.append(None)
                 
         if message_recieved:
-            self.print_message(i, res.text)
+            done_printing = False
+
+            for i, reply in enumerate(message):
+                if reply != None and self.members[i]:
+                    if done_printing != True:
+                        self.print_message(i, reply)
+                        done_printing = True
+                        print_index = i
+                    else:
+                        if reply == message[print_index]:
+                            print('Request:', self.req_count, '-- Discarded duplicate reply from Server:', i+1)
+
+                else:
+                    message.append(None)
+            
             self.req_count += 1
 
 
@@ -83,7 +127,7 @@ class Client:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
     parser.add_argument('--id', type=str, default='C1')
-    parser.add_argument('--ports', type=list, default=[5000, 5001, 5002])
+    parser.add_argument('--ports', type=int, default=[5000, 5001, 5002], nargs='+')
     args = parser.parse_args ()
 
     #Get a list of all servers

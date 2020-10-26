@@ -1,6 +1,13 @@
 import requests as req
 import time
 import argparse
+import pickle
+
+def save_data(data):
+    #Storing data with labels
+    a_file = open('membership.pkl', "wb")
+    pickle.dump(data, a_file)
+    a_file.close()
 
 
 class GFD:
@@ -11,6 +18,8 @@ class GFD:
         self.alive = [False]*self.num_server 
         self.freq = freq
         print('GFD:', sum(self.alive), 'members\n')
+        save_data(self.alive)
+        
         
     def heartbeat(self):
         start = time.time()
@@ -38,7 +47,10 @@ class GFD:
 
             print('GFD:', sum(self.alive), 'members\n')
             time.sleep ( self.freq - ((time.time () - start) % self.freq) )
+            save_data(self.alive)
             print()
+            
+            
 
 def heartbeat_replicas(lfd):
     lfd.heartbeat()
@@ -46,7 +58,7 @@ def heartbeat_replicas(lfd):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
-    parser.add_argument('--ports', type=list, default=[5010, 5011, 5012])
+    parser.add_argument('--ports', type=int, default=[5010, 5011, 5012], nargs='+')
     parser.add_argument('--freq', type=float, default=1.0)
     args = parser.parse_args ()
 
@@ -55,6 +67,7 @@ if __name__ == '__main__':
     ips = []
     for port in args.ports:
         ips.append('http://127.0.0.1:' + str(port) + '/')
+    print(ips)
 
     gfd = GFD(ips, args.freq)
     gfd.heartbeat()
