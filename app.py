@@ -12,12 +12,13 @@ library["Dune"] = 3
 resurrected = -1
 serverid = 1
 
-secondary = { "S1": 'http://127.0.0.1:5000/',"S2": 'http://127.0.0.1:5001/', "S3": 'http://127.0.0.1:5002/'}
+servers = { "1": 'http://127.0.0.1:5000/',"2": 'http://127.0.0.1:5001/', "3": 'http://127.0.0.1:5002/'}
+server_ports = {"1": 5000, "2": 5001, "3": 5002}
 checkpt_count = 0
 messagelist = deque()
 messagecount = 0
 checkpt_freq = 2
-isReady = True 
+isReady = {5000: True, 5001: True, 5002: True}
 
 @app.route("/")
 def intro():
@@ -35,35 +36,40 @@ def heartbeat(lfdid):
 
 @app.route("/info")
 def infoBook():
-    global messagelist, checkpt_freq, messagecount, resurrected 
-    
-    clientid = request.args.get('clientId')
-    bookName = request.args.get('bookName')
-    reqCount = request.args.get('reqCount')
-    print ("[{}] | Received <{}, {}, {}, Request: info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName))
-    print ("State before processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
-    messagelist.append(reqCount)
-    if bookName in library.keys() and library.get(bookName) != 0:
-        infoString = "Yes! {} copy/copies of {} available!".format(library.get(bookName), bookName)
-        print ("State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
-        print ("[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),clientid, args.id, reqCount, infoString))
+    global messagelist, checkpt_freq, messagecount, resurrected, isReady
+
+    # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
+    if isReady.get(args.port) == True: 
+        clientid = request.args.get('clientId')
+        bookName = request.args.get('bookName')
+        reqCount = request.args.get('reqCount')
+        print ("[{}] | Received <{}, {}, {}, Request: info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName))
+        print ("State before processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
+        messagelist.append(reqCount)
+
+        if bookName in library.keys() and library.get(bookName) != 0:
+            infoString = "Yes! {} copy/copies of {} available!".format(library.get(bookName), bookName)
+            print ("State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
+            print ("[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),clientid, args.id, reqCount, infoString))
+            
+            # return infoString
+
+        else:
+            infoString = "Sorry! {} is not available at the moment.".format(bookName)
+            print ( "State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
+            print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, infoString))
+            # return infoString
         
-        # return infoString
+        messagecount += 1
+        print("Message count:" , messagecount)
 
-    else:
-        infoString = "Sorry! {} is not available at the moment.".format(bookName)
-        print ( "State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
-        print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, infoString))
-        # return infoString
+
     
-    messagecount += 1
-    print("Message count:" , messagecount)
-
-    #will remove this chept freq part. Yeah I know freq isnt for active but for passive isntead. I just wanted to make this part run first. 
-    if messagecount == checkpt_freq:
+    else:
         sendCheckpoint()
         messagecount = 0
         isReady = True
+        print("Resurrected server S{} is ready now.".format(resurrected))
 
     return infoString
 
@@ -71,14 +77,16 @@ def infoBook():
 
 @app.route("/get/")
 def getBook():
-    global messagecount, checkpt_freq, resurrected
-    clientid = request.args.get('clientId')
-    bookName = request.args.get('bookName')
-    reqCount = request.args.get('reqCount')
-    print ( "[{}] | Received <{}, {}, {}, Request: get {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName ) )
-    print ( "State before processing <{},{}, {}, Request: get {}>:".format ( clientid, args.id, reqCount, bookName ) + str (library ) )
-    messagelist.append(reqCount)
-    if isReady == True:
+    global messagecount, checkpt_freq, resurrected, isReady
+    # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
+    if isReady.get(args.port) == True: 
+        clientid = request.args.get('clientId')
+        bookName = request.args.get('bookName')
+        reqCount = request.args.get('reqCount')
+        print ( "[{}] | Received <{}, {}, {}, Request: get {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, bookName ) )
+        print ( "State before processing <{},{}, {}, Request: get {}>:".format ( clientid, args.id, reqCount, bookName ) + str (library ) )
+        messagelist.append(reqCount)
+
         if bookName in library.keys() and library.get(bookName) != 0:
             library[bookName] = library.get(bookName) - 1
             getString = "Yes! {} has been shared with you! {} more copy/copies available!".format(bookName, library.get(bookName))
@@ -89,64 +97,71 @@ def getBook():
             getString = "Sorry! {} is not available at the moment.".format ( bookName )
             print ( "State after processing <{}, {}, {}, Request: info {}>:".format ( clientid, args.id, reqCount, bookName ) + str(library))
             print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, getString ) )
+        
+        messagecount += 1
+        print("Message count:" , messagecount)
     
-    messagecount += 1
-    print("Message count:" , messagecount)
-    
-    if messagecount != 0 and messagecount % checkpt_freq == 0:
+
+        
+    else:
         sendCheckpoint()
         messagecount = 0
-        isReady == True
+        isReady = True
+        print("Resurrected server {} is ready now.".format(resurrected))
 
     return getString
     
 
         
 def sendCheckpoint():
-    global secondary,checkpt_count, library
+    global servers,checkpt_count, library, resurrected
     checkpt_count += 1
 
     payload = {"state":library, "checkpt_count": checkpt_count}
     try:        
-        for replica in secondary.keys():
-            payload['sender'] = replica
-            reqString = secondary.get(replica) + "checkpoint"
-            print(reqString)
-            response = req.post(reqString, json=payload)
-            if response.text == "True":
-                print("Checkpoint successfully sent.")
-            else:
-                print("Response text:", response.text)
-                print("Did something with checkpoint")
+        for replica in servers.keys():
+            if replica != resurrected:
+                payload['sender'] = replica
+                reqString = servers.get(replica) + "checkpoint"
+                response = req.post(reqString, json=payload)
+                if response.text == "True":
+                    print("Checkpoint successfully sent.")
+                else:
+                    print("Response text:", response.text)
+                    print("Did something with checkpoint")
     except:
         print("Checkpoint sending failed.")
     return
 
 @app.route('/checkpoint', methods=['POST'])
 def receiveCheckpoint():
-    global library, checkpt_count, messagelist
-    data = request.get_json()
+    global library, checkpt_count, messagelist, resurrected
+    if args.port == server_ports.get(resurrected):
+        print("Checkpoint received at server: S", resurrected)
+        data = request.get_json()
 
-    print("State before checkpoint: {}".format(library))
-    print("Message list before checkpoint: {}".format(messagelist))
+        print("State before checkpoint: {}".format(library))
+        print("Message list before checkpoint: {}".format(messagelist))
 
-    library = data['state']
-    checkpt_count = data['checkpt_count']
-    sending_server = data['sender']
+        library = data['state']
+        checkpt_count = data['checkpt_count']
+        sending_server = data['sender']
 
-    print("[{}] Received checkpoint from {} | Checkpoint count: {}".format(time.strftime("%H:%M:%S", time.localtime()), sending_server, checkpt_count))
-    print("state after checkpoint: {}".format(library))
+        print("[{}] Received checkpoint from {} | Checkpoint count: {}".format(time.strftime("%H:%M:%S", time.localtime()), sending_server, checkpt_count))
+        print("state after checkpoint: {}".format(library))
 
-    messagelist.clear()
-    print ( "Message list after checkpoint: {}".format(messagelist))    
+        messagelist.clear()
+        print ( "Message list after checkpoint: {}".format(messagelist))    
 
     return "True"
     
 @app.route("/watchtower")
 def watch():
-    global resurrected
+    global resurrected, isReady
     resurrected = request.args.get('new') 
-    print("Server {} notified that resurr member is:{}".format(args.port, resurrected))
+    resurr_port = server_ports.get(resurrected)
+    isReady[resurr_port] = False
+    print("Server port {} notified that resurr member is:{}".format(args.port, resurrected))
     return "Notified."
 
 

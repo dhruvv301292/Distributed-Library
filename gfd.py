@@ -41,7 +41,7 @@ class GFD:
                     if resp.text == 'True' and self.alive[i] != True:
                         self.alive[i] = True
                         print('Added Member S' + str(i+1) )
-                        new_member = i
+                        new_member = i+1
 
 
                     elif resp.text == 'False' and self.alive[i] != False:
@@ -52,15 +52,15 @@ class GFD:
                     self.alive[i] = False
 
 
-            alive_members = ['S'+str(i) for i in range(len(self.alive)) if self.alive[i] == True]
+            alive_members = ['S'+str(i+1) for i in range(len(self.alive)) if self.alive[i] == True]
             members = ",".join(alive_members)
             print('GFD:', sum(self.alive), 'members:', members,'\n')
             time.sleep ( self.freq - ((time.time () - start) % self.freq) )
             save_data(self.alive)
             #TODO: Send update from GFD to RM here.
-            dead_members = [str(i) for i in range(len(self.alive)) if self.alive[i] == False]
-            dead_members = "".join(dead_members)
-            rm_update = self.rm+"update?memberCount="+str(sum(self.alive))+"&members="+members+"&new="+str(new_member)
+            dead_members = [str(i+1) for i in range(len(self.alive)) if self.alive[i] == False]
+            dead_members = ",".join(dead_members)
+            rm_update = self.rm+"update?memberCount="+str(sum(self.alive))+"&members="+members+"&new="+str(new_member)+"&dead="+dead_members
             rm_response = req.get(rm_update)
             # print(rm_response.text)
             

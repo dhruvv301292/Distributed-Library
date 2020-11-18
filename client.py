@@ -156,4 +156,6 @@ if __name__ == '__main__':
             elif reqlist[0] == 'req' or reqlist[0] == 'request':
                 client.getbook(reqlist[1])
 
-  
+    # [timestamp] Sent <C1, S1, 101, request>
+    # print ( "[{}] | beatCount: {} | {} sending heartbeat to S1".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count, self.id ) )
+
