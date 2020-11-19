@@ -12,13 +12,15 @@ library["Dune"] = 3
 resurrected = -1
 serverid = 1
 
-servers = { "1": 'http://127.0.0.1:5000/',"2": 'http://127.0.0.1:5001/', "3": 'http://127.0.0.1:5002/'}
-server_ports = {"1": 5000, "2": 5001, "3": 5002}
+servers = { "S1": 'http://127.0.0.1:5000/',"S2": 'http://127.0.0.1:5001/', "S3": 'http://127.0.0.1:5002/'}
+port_ips = { "S1": 'http://127.0.0.1:5000/',"S2": 'http://127.0.0.1:5001/', "S3": 'http://127.0.0.1:5002/'}
+server_ports = {"S1": 5000, "S2": 5001, "S3": 5002}
 checkpt_count = 0
 messagelist = deque()
 messagecount = 0
 checkpt_freq = 2
 isReady = {5000: True, 5001: True, 5002: True}
+resurr_port = 5000 #an initial value
 
 @app.route("/")
 def intro():
@@ -36,8 +38,10 @@ def heartbeat(lfdid):
 
 @app.route("/info")
 def infoBook():
-    global messagelist, checkpt_freq, messagecount, resurrected, isReady
-
+    
+    global messagelist, checkpt_freq, messagecount, resurrected, isReady, resurr_port
+    print(isReady)
+    infoString = ""
     # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
     if isReady.get(args.port) == True: 
         clientid = request.args.get('clientId')
@@ -65,11 +69,16 @@ def infoBook():
 
 
     
-    else:
+    '''else:
+        print('='*30, 'entered else')
+        print('isread:', isReady, resurrected)
+        # in the case when isReady[arg.port] == False. right? 
         sendCheckpoint()
         messagecount = 0
-        isReady = True
-        print("Resurrected server S{} is ready now.".format(resurrected))
+        infoString = ""
+        isReady[resurr_port] = True
+        print("Resurrected server S{} is ready now.".format(resurrected)) '''
+
 
     return infoString
 
@@ -77,7 +86,9 @@ def infoBook():
 
 @app.route("/get/")
 def getBook():
-    global messagecount, checkpt_freq, resurrected, isReady
+    global messagecount, checkpt_freq, resurrected, isReady, resurr_port
+    print(isReady)
+    getString = ""
     # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
     if isReady.get(args.port) == True: 
         clientid = request.args.get('clientId')
@@ -101,67 +112,83 @@ def getBook():
         messagecount += 1
         print("Message count:" , messagecount)
     
-
-        
-    else:
-        sendCheckpoint()
-        messagecount = 0
-        isReady = True
-        print("Resurrected server {} is ready now.".format(resurrected))
-
     return getString
     
 
         
 def sendCheckpoint():
-    global servers,checkpt_count, library, resurrected
+    global servers,checkpt_count, library, resurrected, resurr_port
     checkpt_count += 1
 
-    payload = {"state":library, "checkpt_count": checkpt_count}
-    try:        
-        for replica in servers.keys():
-            if replica != resurrected:
-                payload['sender'] = replica
-                reqString = servers.get(replica) + "checkpoint"
-                response = req.post(reqString, json=payload)
-                if response.text == "True":
-                    print("Checkpoint successfully sent.")
-                else:
-                    print("Response text:", response.text)
-                    print("Did something with checkpoint")
+    payload = {"state":library}
+    try:
+        if args.port != resurr_port:
+        
+            print('Sending from:', args.port,"where resurrected is:", resurrected)
+            payload['sender'] = args.port
+            postString = servers[resurrected] + "checkpoint"
+            response = req.post(postString, json=payload)
+            if response.text == "True":
+                print("Checkpoint successfully sent to {}".format(resurrected))
+
+            else:
+                print("Response text:", response.text)
+                print("Did something with checkpoint")
     except:
         print("Checkpoint sending failed.")
-    return
+        
+
 
 @app.route('/checkpoint', methods=['POST'])
 def receiveCheckpoint():
-    global library, checkpt_count, messagelist, resurrected
+    global library, checkpt_count, messagelist, resurrected, isReady
+    print('---------Receiving at port:', args.port)
     if args.port == server_ports.get(resurrected):
         print("Checkpoint received at server: S", resurrected)
         data = request.get_json()
-
+        # print("Data og", data['state'])
         print("State before checkpoint: {}".format(library))
-        print("Message list before checkpoint: {}".format(messagelist))
+        # print("Message list before checkpoint: {}".format(messagelist))
 
         library = data['state']
-        checkpt_count = data['checkpt_count']
+        # checkpt_count = data['checkpt_count']
         sending_server = data['sender']
+        # print('---------Printing received state',library)
 
         print("[{}] Received checkpoint from {} | Checkpoint count: {}".format(time.strftime("%H:%M:%S", time.localtime()), sending_server, checkpt_count))
-        print("state after checkpoint: {}".format(library))
+        print("State after checkpoint: {}".format(library))
+        isReady[resurr_port] = True
 
         messagelist.clear()
-        print ( "Message list after checkpoint: {}".format(messagelist))    
+        # print ( "Message list after checkpoint: {}".format(messagelist))
+        print ("Resurrected server {} is now ready.".format(resurrected))  
+
+    # else:
+    #     return  
 
     return "True"
     
 @app.route("/watchtower")
 def watch():
-    global resurrected, isReady
+
+    global resurrected, isReady, resurr_port
+    # print('--------ennterred watchdog', isReady)
     resurrected = request.args.get('new') 
     resurr_port = server_ports.get(resurrected)
     isReady[resurr_port] = False
+    # print('--------change status', isReady)
     print("Server port {} notified that resurr member is:{}".format(args.port, resurrected))
+
+    if isReady.get(args.port): 
+
+        print('--------Sending checkpoint now.')
+        sendCheckpoint()
+        # messagecount = 0
+        # getString = ""
+        # isReady[resurr_port] = True
+        # print("Resurrected server {} is ready now.".format(resurrected))
+
+
     return "Notified."
 
 

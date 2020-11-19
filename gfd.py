@@ -27,11 +27,11 @@ class GFD:
     def heartbeat(self):
         start = time.time()
         check = True
-        new_member = -1 
         
         while check:
             self.heartbeat_count += 1
-            
+            new_member = -1
+
             for i, ip in enumerate(self.ips):
                 print ( "[{}] | beatCount: {} sending heartbeat".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count ) )
                 
@@ -57,7 +57,8 @@ class GFD:
             print('GFD:', sum(self.alive), 'members:', members,'\n')
             time.sleep ( self.freq - ((time.time () - start) % self.freq) )
             save_data(self.alive)
-            #TODO: Send update from GFD to RM here.
+
+            #TODO: Send update from GFD to RM heresnt .
             dead_members = [str(i+1) for i in range(len(self.alive)) if self.alive[i] == False]
             dead_members = ",".join(dead_members)
             rm_update = self.rm+"update?memberCount="+str(sum(self.alive))+"&members="+members+"&new="+str(new_member)+"&dead="+dead_members

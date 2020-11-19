@@ -9,7 +9,7 @@ import requests as req
 app = Flask(__name__)
 new_member = -1 
 
-servers = {'1':'http://127.0.0.1:5000/','2': 'http://127.0.0.1:5001/', '3':'http://127.0.0.1:5002/'}
+servers = {'S1':'http://127.0.0.1:5000/','S2': 'http://127.0.0.1:5001/', 'S3':'http://127.0.0.1:5002/'}
 
 def save_data(data):
     #Storing data with labels
@@ -21,76 +21,38 @@ def save_data(data):
 @app.route('/update')
 def updateRM():
     members = request.args.get('members')
+    members = members.split(',')
     member_count = request.args.get('memberCount')
     new_member = request.args.get('new')
     dead_members = request.args.get('dead')
-    dead_members = list(dead_members)
+    dead_members = dead_members.split(',')
     print("RM:{} members: {}".format(member_count, members))
     save_data(members)
+    print('='*10)
 
     
     if int(new_member) != -1:
-        print("Send checkpoint to this server:", dead_members)
-        replicas = set(servers.keys()) - set((new_member))
+        print("Send checkpoint to this server: ", dead_members)
+        new_member = 'S' + new_member
+        replicas = set(members) - set(new_member)
         print("Replicas:",list(replicas))
     
-    try:
+    
+        
         for r in list(replicas):
-            checkpoint_alert = servers.get(r)+"watchtower?"+"new="+new_member+"&inform="+r
-            signal = req.get(checkpoint_alert)
-            print("Response of server:",r, signal.text)
+            try:
+                checkpoint_alert = servers.get(r)+"watchtower?"+"new="+new_member+"&inform="+r
+                signal = req.get(checkpoint_alert)
+                print("Response of server:",r, signal.text)
 
-    except:
-        print("Connection with server S{} is closed.".format(dead_members))
+            except:
+                print("Connection with server {} is closed.".format(r))
 
     return "RM received update"
 
 
-
-# #Not using this class.
-# class RM:
-#     def __init__(self, ips, freq):
-#         self.heartbeat_count = 0
-#         self.ips = ips
-#         self.num_server = len(ips)
-#         self.alive = [False]*self.num_server 
-#         self.freq = freq
-#         print('RM:', sum(self.alive), 'members\n')
-#         save_data(self.alive)
-
-#     def heartbeat(self):
-#         start = time.time()
-#         check = True
-
-#         while check:
-#             self.heartbeat_count += 1
-
-#             #: remove heartbeat for RM
-            
-#             for i, ip in enumerate(self.ips):
-#                 # print ( "[{}] | beatCount: {} sending heartbeat".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count ) )
-
-#                 try:
-#                     resp = request.get(ip + "heartbeat")
-#                     print("[{}] | beatCount: {} | received response from GFD{}: {}".format(time.strftime("%H:%M:%S", time.localtime()), self.heartbeat_count, i+1, resp.text))
-#                     print("Got response from GFD:", resp.text)
-                    
-#                     if resp.text == 'True' and self.alive[i] != True:
-#                         self.alive[i] = True
-#                         print('Added Member S' + str(i+1) )
-#                     elif resp.text == 'False' and self.alive[i] != False:
-#                         self.alive[i] = False
-
-#                 except:
-#                     print("[{}] | beatCount: {}: GFD not available".format (time.strftime("%H:%M:%S", time.localtime()), self.heartbeat_count))
-#                     # self.alive[i] = False
-
-#             alive_members = ['S'+str(i) for i in range(len(self.alive)) if self.alive[i] == True]
-#             members = ",".join(alive_members)
-#             print('RM:', sum(self.alive), 'members:', members,'\n')
-# #             time.sleep ( self.freq - ((time.time () - start) % self.freq) )
-#             save_data(self.alive)
-#             print()
+def rm_init():
+    print ("RM: 0 members")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
@@ -100,14 +62,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #Get a list of all servers
-    # num_server = len(args.servers)
-    # ips = []
-    # for port in args.ports:
-    #     ips.append('http://127.0.0.1:' + str(port) + '/')
-    # print("Replicas available",ips)
-    
-    # rm = RM(ips, args.freq)
-    # rm.heartbeat()
 
+    rm_init()
     app.run(debug=False, port=args.port)
+
+    
+
+   
