@@ -4,12 +4,14 @@ import argparse
 import pickle
 from flask import Flask, request
 import requests as req
-
+import applescript
+from applescript import tell 
 
 app = Flask(__name__)
 new_member = -1 
 
 servers = {'S1':'http://127.0.0.1:5000/','S2': 'http://127.0.0.1:5001/', 'S3':'http://127.0.0.1:5002/'}
+server_ports = {"S1": 5000, "S2": 5001, "S3": 5002}
 
 def save_data(data):
     #Storing data with labels
@@ -30,6 +32,10 @@ def updateRM():
     save_data(members)
     print('='*10)
 
+    if dead_members != ['']:
+        print("To be resurrected:",dead_members)
+        resurrect(dead_members)
+        time.sleep(5.0)
     
     if int(new_member) != -1:
         print("Send checkpoint to this server: ", dead_members)
@@ -54,11 +60,20 @@ def updateRM():
 def rm_init():
     print ("RM: 0 members")
 
+def resurrect(dead_members):
+    for zombie in dead_members:
+        zombie = 'S'+zombie
+        print("Resurrecting zombie ",zombie)
+        # TODO: change command to the one in your terminal to run app.py for the to-be-revived servers. 
+        command = 'conda activate gfortran-issue && cd Desktop/DS/Distributed-Library-master/ && python3 app.py --id {} --port {}'.format(zombie, server_ports[zombie])
+        tell.app('Terminal','do script "'+command+'"')
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
     parser.add_argument('--port', type=int, default=5020) # port number of GFD will be 5020 here.
     parser.add_argument('--freq', type=float, default=1.0)
-    parser.add_argument('--servers', type=int, default=[5000]) # list of all server ports
 
     args = parser.parse_args()
 

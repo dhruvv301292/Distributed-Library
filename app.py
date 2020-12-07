@@ -42,7 +42,7 @@ def infoBook():
     global messagelist, checkpt_freq, messagecount, resurrected, isReady, resurr_port
     print(isReady)
     infoString = ""
-    # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
+    
     if isReady.get(args.port) == True: 
         clientid = request.args.get('clientId')
         bookName = request.args.get('bookName')
@@ -56,28 +56,16 @@ def infoBook():
             print ("State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
             print ("[{}] | Sending <{}, {}, {}, Response: {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),clientid, args.id, reqCount, infoString))
             
-            # return infoString
+            
 
         else:
             infoString = "Sorry! {} is not available at the moment.".format(bookName)
             print ( "State after processing <{}, {}, {}, Request: info {}>:".format(clientid, args.id, reqCount, bookName) + str(library))
             print ( "[{}] | Sending <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime () ), clientid, args.id, reqCount, infoString))
-            # return infoString
+            
         
         messagecount += 1
         print("Message count:" , messagecount)
-
-
-    
-    '''else:
-        print('='*30, 'entered else')
-        print('isread:', isReady, resurrected)
-        # in the case when isReady[arg.port] == False. right? 
-        sendCheckpoint()
-        messagecount = 0
-        infoString = ""
-        isReady[resurr_port] = True
-        print("Resurrected server S{} is ready now.".format(resurrected)) '''
 
 
     return infoString
@@ -89,7 +77,7 @@ def getBook():
     global messagecount, checkpt_freq, resurrected, isReady, resurr_port
     print(isReady)
     getString = ""
-    # if args.port != server_ports.get(resurrected): #something missing here, isReady condition!!
+    
     if isReady.get(args.port) == True: 
         clientid = request.args.get('clientId')
         bookName = request.args.get('bookName')
@@ -120,7 +108,7 @@ def sendCheckpoint():
     global servers,checkpt_count, library, resurrected, resurr_port
     checkpt_count += 1
 
-    payload = {"state":library}
+    payload = {"state":library, 'checkpt_count': checkpt_count}
     try:
         if args.port != resurr_port:
         
@@ -151,7 +139,7 @@ def receiveCheckpoint():
         # print("Message list before checkpoint: {}".format(messagelist))
 
         library = data['state']
-        # checkpt_count = data['checkpt_count']
+        checkpt_count = data['checkpt_count']
         sending_server = data['sender']
         # print('---------Printing received state',library)
 
@@ -163,8 +151,7 @@ def receiveCheckpoint():
         # print ( "Message list after checkpoint: {}".format(messagelist))
         print ("Resurrected server {} is now ready.".format(resurrected))  
 
-    # else:
-    #     return  
+ 
 
     return "True"
     
@@ -185,8 +172,8 @@ def watch():
         sendCheckpoint()
         # messagecount = 0
         # getString = ""
-        # isReady[resurr_port] = True
-        # print("Resurrected server {} is ready now.".format(resurrected))
+        isReady[resurr_port] = True
+        print("Resurrected server {} is ready now.".format(resurrected))
 
 
     return "Notified."
