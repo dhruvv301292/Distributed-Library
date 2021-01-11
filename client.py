@@ -1,146 +1,107 @@
 import requests as req
 import argparse
 import time
-import pickle
+import json
 
-def load_data():
-    a_file = open('membership.pkl', "rb")
-    output = pickle.load(a_file)
-    a_file.close()
-    return output
+
+messagestack = set()
 
 class Client:
-    def __init__(self, id, ips):
+    def __init__(self, id, ip_dict):
         self.id = id
-        self.collection = {}
-        self.ips = ips
-        self.num_server = len(ips)
+        self.ip_dict = ip_dict
         self.req_count = 1
 
     def connect(self):
-        connected = False
-        for i in range(self.num_server):
-            try:
-                resp = req.get(self.ips[i])
-                connected = True
-            except:
-                print("Server", i+1,  "is not available")
-
-        if connected:
-            print(resp.text)
-
+        self.ip_dict["S1"].connect()
 
     def requestinfo(self, bookname):
-        message_recieved = False
-        message = []
-        self.members = load_data()
-
-        for i in range(self.num_server):
-            if self.members[i]:
-                self.sending_message(i, bookname, 'info')
-
-                try:
-                    requestString = self.ips[i] + "info?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count)
-                    res = req.get(requestString)
-                    message_recieved = True
-                    message.append(res.text)
-                    self.reciept_success(i)
-                    
-                except:
-                    self.reciept_failed(i)
-                    message.append(None)
+        global messagestack
+        with open ( 'members.txt', 'r' ) as f:
+            members = json.load ( f )
+        if len(members) == 0:
+            print("No servers online")
+            return
+        responses = []
+        for member in members:
+            responses.append ( self.ip_dict[member].requestinfo ( bookname, self.req_count ) )
+        for response in responses:
+            if response[2] == "Server not available":
+                continue
+            elif response[1] in messagestack:
+                print ( "request_num {}: Discarded duplicate reply from {}".format ( response[1], response[0] ) )
             else:
-                message.append(None)
-                
-        if message_recieved:
-            done_printing = False
-
-            for i, reply in enumerate(message):
-                if reply != None and self.members[i]:
-                    if done_printing != True:
-                        self.print_message(i, reply)
-                        done_printing = True
-                        print_index = i
-                    else:
-                        if reply == message[print_index]:
-                            print('Request:', self.req_count, '-- Discarded duplicate reply from Server:', i+1)
-            
-            self.req_count += 1
-
+                print ( "[{}] | Received <{}, {}, {}, Response: {}>".format (
+                    time.strftime ( "%H:%M:%S", time.localtime () ), response[0], self.id, response[1], response[2] ) )
+                messagestack.add ( response[1] )
+        self.req_count += 1
 
     def getbook(self, bookname):
-        message_recieved = False
-        message = []
-        self.members = load_data()
+        with open ( 'members.txt', 'r' ) as f:
+            members = json.load(f)
+        for member in members:
+            ip_dict[member].getbook(bookname, self.req_count)
+        self.req_count += 1
 
-        for i in range(self.num_server):
-            if self.members[i]:
-                self.sending_message(i, bookname, 'get')
-                try:
-                    res = req.get(self.ips[i] + "get?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(self.req_count))
-                    message_recieved = True
-                    message.append(res.text)
-                    self.reciept_success(i)
+class serverCom:
+    def __init__(self, id, serverid, ip):
+        self.id = id
+        self.serverid = serverid
+        self.ip = ip
 
-                except:
-                    self.reciept_failed(i)
-                    message.append(None)
-                
-        if message_recieved:
-            done_printing = False
+    def connect(self):
+        try:
+            print(req.get(self.ip).text)
+        except:
+            print("Server is not available")
 
-            for i, reply in enumerate(message):
-                if reply != None and self.members[i]:
-                    if done_printing != True:
-                        self.print_message(i, reply)
-                        done_printing = True
-                        print_index = i
-                    else:
-                        if reply == message[print_index]:
-                            print('Request:', self.req_count, '-- Discarded duplicate reply from Server:', i+1)
+    def requestinfo(self, bookname, req_count):
+        # global messagestack
+        print ( "[{}] | Sending <{}, {}, {}, info {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ),
+                                                                self.serverid, self.id, req_count, bookname ) )
+        try:
+            requestString = self.ip + "info?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str (
+                req_count )
+            res = req.get ( requestString )
+            # if req_count in messagestack:
+            #     print("request_num {}: Discarded duplicate reply from {}".format(req_count, self.serverid))
+            # else:
+            #     print ("[{}] | Received <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.serverid, self.id, req_count, res.text))
+            #     messagestack.add(req_count)
+            return self.serverid, req_count, res.text
+        except:
+            return self.serverid, req_count, "Server not available"
+            # print("[{}] | Received <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.serverid, self.id, req_count, "Server not available"))
 
-                else:
-                    message.append(None)
-            
-            self.req_count += 1
-
-
-    ###### METHODS DEFINING VARIOUS PRINTING OPERATIONS  ############
-    def sending_message(self, i, bookname, method):
-        print("[{}] | Sending <{}, S{}, {}, {} {}>".format ( time.strftime ( "%H:%M:%S", time.localtime () ), self.id, str(i+1),  self.req_count, method, bookname))
-
-    def reciept_success(self, i):
-        print("[{}] | Received <{}, S{}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, str(i+1), self.req_count, "Recieved Response from S" + str(i+1)))
-
-    def reciept_failed(self, i):
-        print("[{}] | Received <{}, S{}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, str(i+1), self.req_count, "Server " + str(i+1) + " not available"))
-
-    def print_message(self, i, text):
-        print()
-        print ("[{}] | Recieved <{}, S{}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.id, str(i+1), self.req_count, text))
-        print()
-
-
-
-
+    def getbook(self, bookname, req_count):
+        global messagestack
+        print("[{}] | Sending <{}, {}, {}, get {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.serverid, self.id, req_count, bookname ) )
+        try:
+            res = req.get(self.ip + "get?clientId=" + self.id + "&bookName=" + bookname + "&reqCount=" + str(req_count))
+            if req_count in messagestack:
+                print ("request_num {}: Discarded duplicate reply from {}".format(req_count, self.serverid))
+            else:
+                print("[{}] | Received <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.serverid, self.id, req_count, res.text))
+                messagestack.add(req_count)
+        except:
+            print("[{}] | Received <{}, {}, {}, Response: {}>".format(time.strftime("%H:%M:%S", time.localtime()), self.serverid, self.id, req_count, "Server not available"))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser ()
     parser.add_argument('--id', type=str, default='C1')
-    parser.add_argument('--ports', type=int, default=[5000, 5001, 5002], nargs='+')
-    args = parser.parse_args ()
+    parser.add_argument('--ip1', type=str, default='http://127.0.0.1:5000/')
+    parser.add_argument ('--ip2', type=str, default='http://127.0.0.1:5010/')
+    parser.add_argument ('--ip3', type=str, default='http://127.0.0.1:5020/')
+    args = parser.parse_args()
 
-    #Get a list of all servers
-    num_server = len(args.ports)
-    ips = []
-    for port in args.ports:
-        ips.append('http://127.0.0.1:' + str(port) + '/')
 
-    #Create Client object
-    client = Client(args.id, ips)
-    client.connect()
+    com1 = serverCom(args.id, "S1", args.ip1)
+    com2 = serverCom(args.id, "S2", args.ip2)
+    com3 = serverCom(args.id, "S3", args.ip3)
+    ip_dict = {"S1": com1, "S2": com2, "S3": com3}
+    client = Client(args.id, ip_dict)
 
-    #Open communication between server and client
+    client.connect ()
     print("Enter request type and book name")
     while True:
         inp = input()
@@ -155,7 +116,4 @@ if __name__ == '__main__':
                 client.requestinfo(reqlist[1])
             elif reqlist[0] == 'req' or reqlist[0] == 'request':
                 client.getbook(reqlist[1])
-
-    # [timestamp] Sent <C1, S1, 101, request>
-    # print ( "[{}] | beatCount: {} | {} sending heartbeat to S1".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count, self.id ) )
 

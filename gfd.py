@@ -1,75 +1,71 @@
 import requests as req
 import time
 import argparse
-import pickle
-
-def save_data(data):
-    #Storing data with labels
-    a_file = open('membership.pkl', "wb")
-    pickle.dump(data, a_file)
-    a_file.close()
+from collections import deque
+import threading
+import json
+import pdb
 
 
-class GFD:
-    def __init__(self, ips, freq):
-        self.heartbeat_count = 0
-        self.ips = ips
-        self.num_server = len(ips)
-        self.alive = [False]*self.num_server 
-        self.freq = freq
-        print('GFD:', sum(self.alive), 'members\n')
-        save_data(self.alive)
-        
-        
-    def heartbeat(self):
+members = deque()
+
+def heartbeat(ip, freq, serverID):
         start = time.time()
-        check = True
+        connected = False
+        while True:
+            try:
+                resp = req.get(ip + "gfdbeat")
+                if resp.text == "Alive" and not connected:
+                    res = req.get("http://127.0.0.1:5008/update?id={}&up=add".format(serverID))
+                    memberlist = addmember ( serverID )
+                    print("GFD: {} members: {}".format(len(memberlist), memberlist))
+                    # pdb.set_trace()
+                    with open('/Users/dhruvvashisht/PycharmProjects/Distributed/members.txt', 'w') as f:
+                        json.dump(memberlist, f)
+                        print("printed to members")
+                    connected = True
+                elif resp.text == "Dead" and connected:
+                    res = req.get("http://127.0.0.1:5008/update?id={}&up=remove".format(serverID))
+                    memberlist = delmember ( serverID )
+                    if len(memberlist) == 0:
+                        print("GFD: {} members".format(len(memberlist)))
+                    else:
+                        print("GFD: {} members: {}".format(len(memberlist), memberlist))
+                    connected = False
+                    with open ( '/Users/dhruvvashisht/PycharmProjects/Distributed/members.txt', 'w' ) as f:
+                        json.dump (memberlist, f)
+                time.sleep(freq - ((time.time() - start) % freq))
+            except:
+                if connected:
+                    memberlist = delmember(serverID)
+                    if len ( memberlist ) == 0:
+                        print ( "GFD: {} members".format ( len ( memberlist ) ) )
+                    else:
+                        print ( "GFD: {} members: {}".format ( len ( memberlist ), memberlist ) )
+                    connected = False
+                time.sleep(freq - ((time.time () - start) % freq))
 
-        while check:
-            self.heartbeat_count += 1
-            
-            for i, ip in enumerate(self.ips):
-                print ( "[{}] | beatCount: {} sending heartbeat".format (time.strftime ( "%H:%M:%S", time.localtime () ), self.heartbeat_count ) )
-                
-                try:
-                    resp = req.get(ip + "heartbeat")
-                    print("[{}] | beatCount: {} | received response from lfd{}: {}".format(time.strftime("%H:%M:%S", time.localtime()), self.heartbeat_count, i+1, resp.text))
-                    if resp.text == 'True' and self.alive[i] != True:
-                        self.alive[i] = True
-                        print('Added Member S' + str(i+1) )
-                    elif resp.text == 'False' and self.alive[i] != False:
-                        self.alive[i] = False
+def addmember(serverID):
+    members.append(serverID)
+    print("Added {}".format(serverID))
+    return list(members)
 
-                except:
-                    print("[{}] | beatCount: {}: lfd{} not available".format (time.strftime("%H:%M:%S", time.localtime()), self.heartbeat_count, i+1))
-                    self.alive[i] = False
-
-
-            print('GFD:', sum(self.alive), 'members\n')
-            time.sleep ( self.freq - ((time.time () - start) % self.freq) )
-            save_data(self.alive)
-            print()
-            
-            
-
-def heartbeat_replicas(lfd):
-    lfd.heartbeat()
-
+def delmember(serverID):
+    members.remove(serverID)
+    print("Removed {}".format(serverID))
+    return list(members)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser ()
-    parser.add_argument('--ports', type=int, default=[5010, 5011, 5012], nargs='+')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ip1', type=str, default='http://127.0.0.1:5002/')
+    parser.add_argument('--ip2', type=str, default='http://127.0.0.1:5004/')
+    parser.add_argument('--ip3', type=str, default='http://127.0.0.1:5006/')
     parser.add_argument('--freq', type=float, default=1.0)
     args = parser.parse_args ()
-
-    #Get a list of all servers
-    num_server = len(args.ports)
-    ips = []
-    for port in args.ports:
-        ips.append('http://127.0.0.1:' + str(port) + '/')
-    print(ips)
-
-    gfd = GFD(ips, args.freq)
-    gfd.heartbeat()
-
-
+    print("GFD: {} members".format(len(members)))
+    x1 = threading.Thread ( target=heartbeat, args=(args.ip1, args.freq, "S1"))
+    x1.start()
+    x2 = threading.Thread ( target=heartbeat, args=(args.ip2, args.freq, "S2"))
+    x2.start()
+    x3 = threading.Thread ( target=heartbeat, args=(args.ip3, args.freq, "S3"))
+    x3.start()
